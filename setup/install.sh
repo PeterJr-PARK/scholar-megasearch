@@ -3,11 +3,16 @@
 # Reconstitutes the scholar-megasearch literature-search stack on a fresh machine:
 #   1. installs the skills into ~/.claude/skills/
 #   2. builds the search/acquisition venv (~/.claude/skill_venv) from requirements.txt
-#   3. installs the three MCP servers (arxiv-mcp-server, semantic-scholar-mcp, paper-search-mcp)
+#   3. installs the local MCP servers (arxiv-mcp-server via uvx, paper-search-mcp from
+#      git main); Semantic Scholar (Bucket B) uses the REMOTE Ai2 Asta MCP — no install
 #   4. emits a resolved MCP config you can merge into ~/.claude.json
 #
 # Usage:  bash setup/install.sh [you@example.com]
 #   The optional email is used for the Unpaywall OA lookup + arXiv politeness.
+#   Semantic Scholar uses the remote Ai2 Asta MCP — request a free API key at
+#   https://allenai.org/asta/resources/mcp and `export ASTA_API_KEY=...` before
+#   starting Claude Code (the config references ${ASTA_API_KEY}). Asta use is subject
+#   to Ai2's License Agreement + Terms of Use; Semantic Scholar data is ODC-BY.
 set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -38,15 +43,14 @@ echo "==> installing Python deps into skill_venv"
 "${SKILL_VENV}/bin/python" -m pip install -q -r "${REPO_DIR}/setup/requirements.txt"
 
 # --- 3. MCP servers ----------------------------------------------------------
-# semantic-scholar-mcp is third-party (no license declared upstream), so it is
-# NOT vendored — it is cloned from source, then run with skill_venv.
-SSM_DST="${SKILLS_DST}/semantic-scholar-mcp"
-if [ ! -d "${SSM_DST}/.git" ]; then
-  echo "==> cloning semantic-scholar-mcp (JackKuo666)"
-  rm -rf "${SSM_DST}"
-  git clone -q https://github.com/JackKuo666/semanticscholar-MCP-Server.git "${SSM_DST}"
-fi
-"${SKILL_VENV}/bin/python" -m pip install -q -r "${SSM_DST}/requirements.txt" || true
+# Semantic Scholar (Bucket B) is the official Ai2 Asta Scientific Corpus Tool — a
+# REMOTE MCP (https://asta-tools.allen.ai/mcp/v1), so there is nothing to clone or
+# run locally. Request a free API key at https://allenai.org/asta/resources/mcp and
+# `export ASTA_API_KEY=...` (the config expands ${ASTA_API_KEY}); Asta use is subject
+# to Ai2's License Agreement + Terms of Use.
+# Remove any superseded local semantic-scholar-mcp clone from older installs.
+rm -rf "${SKILLS_DST:?}/semantic-scholar-mcp"
+echo "==> Semantic Scholar uses the remote Ai2 Asta MCP (no local install)"
 
 # paper-search-mcp MUST be the git-main build (the PyPI build lacks Crossref/OpenAlex).
 if [ ! -d "${PSM_VENV}" ]; then
@@ -68,9 +72,13 @@ sed -e "s|HOME|${HOME}|g" -e "s|you@example.com|${EMAIL}|g" \
     "${REPO_DIR}/setup/mcp.servers.json" > "${RESOLVED}"
 echo "==> wrote resolved MCP config: ${RESOLVED}"
 echo
-echo "Done. Final step — register the MCP servers:"
-echo "  merge the \"mcpServers\" entries from ${RESOLVED}"
-echo "  into the \"mcpServers\" block of ~/.claude.json, then restart Claude Code."
+echo "Done. Final steps — register the MCP servers:"
+echo "  1. merge the \"mcpServers\" entries from ${RESOLVED}"
+echo "     into the \"mcpServers\" block of ~/.claude.json"
+echo "  2. Semantic Scholar (Asta): get a free key at"
+echo "     https://allenai.org/asta/resources/mcp then  export ASTA_API_KEY=<key>"
+echo "     (subject to Ai2's License Agreement + Terms of Use)"
+echo "  3. restart Claude Code."
 echo
 echo "Verify the skill loads:  ask Claude '논문 방대하게 검색' or run"
 echo "  python3 ${SKILLS_DST}/scholar-megasearch/scripts/merge_corpus.py --help"

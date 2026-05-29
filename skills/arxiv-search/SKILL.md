@@ -1,6 +1,6 @@
 # Academic Paper Search Skill
 
-학술 논문 검색 전용 스킬. API 키 없이 arXiv, Semantic Scholar를 검색하며, MCP 서버(arxiv-mcp-server, semantic-scholar-mcp)도 활용 가능하다.
+학술 논문 검색 전용 스킬. API 키 없이 arXiv, Semantic Scholar를 검색하며, MCP 서버(arxiv-mcp-server, Ai2 Asta)도 활용 가능하다.
 
 ## 언제 사용하는가
 
@@ -16,7 +16,7 @@
 | `arxiv` Python 패키지 | `~/.claude/skill_venv/bin/python3` | arXiv 검색 |
 | `semanticscholar` Python 패키지 | `~/.claude/skill_venv/bin/python3` | Semantic Scholar 검색 |
 | `arxiv-mcp-server` | MCP 등록 완료 (uvx) | Claude Code MCP 도구 |
-| `semantic-scholar-mcp` | MCP 등록 완료 (python3) | Claude Code MCP 도구 |
+| `asta` (Ai2 Asta, 원격) | MCP 등록 완료 | Claude Code MCP 도구 |
 | `paper-search-mcp` | `~/.claude/skill_venv` | arXiv+SS+PubMed 통합 |
 | `ddgs` | `~/.claude/skill_venv/bin/python3` | DuckDuckGo 보조 검색 |
 | `pdfplumber` | `~/.claude/skill_venv/bin/python3` | PDF 텍스트 추출 |
@@ -130,7 +130,7 @@ EOF
 
 ## MCP 사용 (Claude Code 세션 내)
 
-`arxiv-mcp-server`와 `semantic-scholar-mcp`가 Claude Code에 등록되어 있다.
+`arxiv-mcp-server`와 `asta`(Ai2 Asta, Semantic Scholar)가 Claude Code에 등록되어 있다.
 Claude Code 세션에서 자동으로 MCP 도구를 호출 가능하다.
 
 ## 프로젝트 헬퍼 스크립트

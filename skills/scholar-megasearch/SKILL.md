@@ -119,7 +119,7 @@ applies to both the Workflow and Agent paths:
 2. **Citation-snowball** (L3+): take the top ~10 DOIs/arXiv ids from the corpus so far and
    fan out one wave that expands their forward (cited-by) + backward (references) neighbours.
    Workflow: re-run the script with `seeds:[...]`. Agent: tell each searcher to run
-   `citation_graph` / OpenAlex cited-by / Semantic Scholar references on the seeds.
+   `asta get_citations` / arXiv `citation_graph` / OpenAlex cited-by on the seeds.
 3. **Completeness-critic** (L4+): a critic agent reads `corpus.md` and names the missing
    subtopics / seminal authors; those become new facets for one more wave-1-style fan-out.
 4. **Loop-until-dry** (L5): repeat the critic → facets → fan-out → merge cycle until two
@@ -132,5 +132,7 @@ corroborated by ≥2 databases) alongside the full `corpus.json`.
 ## Fallback when MCP is unavailable
 If MCP servers are down/headless, searchers use `scripts/search_local.py {arxiv|
 semanticscholar|ddg} "query"` (runs on `~/.claude/skill_venv/bin/python3`). arXiv may
-rate-limit (HTTP 429) under heavy fan-out — stagger or lean on Semantic Scholar/OpenAlex.
-Never let claude.ai `Scholar_Gateway` be a bucket's only tool (absent in headless runs).
+rate-limit (HTTP 429) under heavy fan-out — stagger or lean on Asta/OpenAlex. The Asta
+(Semantic Scholar) MCP is remote — in headless/cron runs ensure network access and an
+`ASTA_API_KEY`, or fall back to `search_local.py semanticscholar`. Never let claude.ai
+`Scholar_Gateway` be a bucket's only tool (absent in headless runs).

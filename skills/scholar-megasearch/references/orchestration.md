@@ -50,8 +50,8 @@ const CAP = args.cap || 30
 const snowball = Array.isArray(args.seeds) && args.seeds.length > 0
 const task = snowball
   ? `\n\nThis is a CITATION-SNOWBALL wave. For EACH seed below, pull its forward (cited-by) ` +
-    `and backward (references) neighbours via your citation tools (citation_graph, OpenAlex ` +
-    `cited-by, Semantic Scholar references):\n` +
+    `and backward (references) neighbours via your citation tools (asta get_citations, ` +
+    `arXiv citation_graph, OpenAlex cited-by):\n` +
     args.seeds.map((s, i) => `  ${i + 1}. ${s}`).join('\n') +
     `\n\nSet "query" to "snowball:<seed>" on every record.`
   : `\n\nRun EACH of these subqueries through your tools and collect hits:\n` +

@@ -108,10 +108,14 @@ bash setup/install.sh you@example.com      # email used for Unpaywall OA + arXiv
 ```
 
 The script installs the skills into `~/.claude/skills/`, builds
-`~/.claude/skill_venv` and `~/.claude/paper_search_mcp_venv`, clones/installs the
-three MCP servers (`paper-search-mcp` from git main — the PyPI build lacks
-Crossref/OpenAlex), and writes `setup/mcp.servers.resolved.json`. Merge that file's
-`mcpServers` entries into `~/.claude.json` and restart Claude Code.
+`~/.claude/skill_venv` and `~/.claude/paper_search_mcp_venv`, installs the local MCP
+servers (`paper-search-mcp` from git main — the PyPI build lacks Crossref/OpenAlex;
+`arxiv-mcp-server` via `uvx`), and writes `setup/mcp.servers.resolved.json`. Semantic
+Scholar (Bucket B) is the **remote** [Ai2 Asta MCP](https://allenai.org/asta/resources/mcp) —
+nothing to install; request a free API key, `export ASTA_API_KEY=<key>` (the config
+expands `${ASTA_API_KEY}`), and note that its use is subject to Ai2's terms (see
+[Attribution](#attribution)). Merge that file's `mcpServers` entries into
+`~/.claude.json` and restart Claude Code.
 
 **Requirements**
 
@@ -119,7 +123,7 @@ Crossref/OpenAlex), and writes `setup/mcp.servers.resolved.json`. Merge that fil
 |---|---|
 | Python | 3.11+ |
 | [`uv`](https://astral.sh/uv) | for `uvx arxiv-mcp-server` |
-| `git` | to clone `semantic-scholar-mcp` at install time |
+| `git` | `pip install` of `paper-search-mcp` (git main) at install time |
 | Claude Code | the skill is triggered from within a session |
 
 ## Usage
@@ -129,6 +133,18 @@ Inside Claude Code, trigger the skill in natural language:
 ```
 search every database for spin–orbit torque switching and grab the PDFs
 MoE 관련 최근 1년 논문 방대하게 검색해줘, PDF까지
+```
+
+Or invoke it as a **slash command**, optionally pinning the depth level (see
+[Depth levels](#depth-levels)) — prepend `depth=N`, `LN`, or a bare `1–5`, or use a
+phrase like `quick` / `전수조사`. Everything after the command is the topic:
+
+```
+/scholar-megasearch depth=4 spin–orbit torque switching in ferrimagnets
+/scholar-megasearch L5 altermagnetism candidate materials    # L5 = grab every source's PDFs
+/scholar-megasearch quick first look at skyrmion racetrack memory
+/scholar-megasearch 전수조사 위상 절연체 표면 상태 측정         # 전수조사 → L5
+/scholar-megasearch MoE routing papers from the last year       # no level → defaults to L2
 ```
 
 Or run the scripts directly:
@@ -184,7 +200,7 @@ literature_search/<topic>_<date>/
 | Bucket | Databases |
 |--------|-----------|
 | A · Preprints | arXiv (search · semantic · citation graph) |
-| B · Citations | Semantic Scholar (200M+, citation counts) |
+| B · Citations | Semantic Scholar via **Ai2 Asta** (official MCP) + paper-search-mcp |
 | C · DOI / published | Crossref, OpenAlex |
 | D · Life sciences | PubMed, PMC, bioRxiv, medRxiv, Europe PMC |
 | E · Open access | DOAJ, CORE, BASE, OpenAIRE, Zenodo, Unpaywall, HAL |
@@ -226,8 +242,9 @@ scholar-megasearch/
 ```
 
 This repository contains only original MIT-licensed work (the two skills and the
-setup scripts). The three MCP servers are **not** vendored — `setup/install.sh`
-fetches each from its upstream source at install time. See [Attribution](#attribution).
+setup scripts). The third-party MCP servers are **not** vendored — `setup/install.sh`
+fetches the local ones (arxiv-mcp-server, paper-search-mcp) from upstream at install
+time, and Semantic Scholar is the remote Ai2 Asta service. See [Attribution](#attribution).
 
 ## Notes & Limitations
 
@@ -246,12 +263,23 @@ fetches each from its upstream source at install time. See [Attribution](#attrib
 
 ## Attribution
 
-The MCP servers are third-party projects, installed from their upstream sources by
-`setup/install.sh` — none of their code is redistributed here:
+The MCP servers are third-party — installed from their upstream sources by
+`setup/install.sh`, or (for Asta) used as a remote service. None of their code is
+redistributed here:
 
-- **semantic-scholar-mcp** — [JackKuo666/semanticscholar-MCP-Server](https://github.com/JackKuo666/semanticscholar-MCP-Server) (cloned at install time)
+- **Ai2 Asta Scientific Corpus Tool** — the official Semantic Scholar MCP by the
+  [Allen Institute for AI](https://allenai.org/asta/resources/mcp), used as a remote
+  service under Ai2's [Asta License Agreement](https://allenai.org/asta-corpus-license)
+  and [Terms of Use](https://allenai.org/terms) (no code vendored).
 - **paper-search-mcp** — [openags/paper-search-mcp](https://github.com/openags/paper-search-mcp) (pip install from git main)
 - **arxiv-mcp-server** — launched on demand via `uvx`
 
+**Semantic Scholar data** returned through Asta is licensed **ODC-BY** and governed by the
+[Semantic Scholar API license](https://www.semanticscholar.org/product/api/license): when
+you publish results built on it, **attribute Semantic Scholar** (link back to
+semanticscholar.org) and do **not** redistribute, sell, or sublicense the raw data.
+Individual papers/abstracts may carry their own licenses (e.g. CC BY-NC).
+
 Original work in this repository (the `scholar-megasearch` and `arxiv-search` skills
-and the setup scripts) is released under the [MIT License](./LICENSE).
+and the setup scripts) is released under the [MIT License](./LICENSE) — this covers our
+code only, not the third-party services or the data they return.

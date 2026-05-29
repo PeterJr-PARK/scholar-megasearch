@@ -16,12 +16,15 @@ Inside a Workflow, agents load their own schemas via ToolSearch automatically.
 - `citation_graph` — forward/backward citations from a seed arXiv id (snowballing).
 Fallback: `scripts/search_local.py arxiv "query"`.
 
-## Bucket B — Semantic Scholar (200M+ papers, citation counts)
-`semantic-scholar-mcp`: `semanticSearch`. Also claude.ai `Scholar_Gateway.semanticSearch`
-(best-effort; may be absent in headless/cron runs — never make it the only source).
-`paper-search-mcp`: `search_semantic`, `read_semantic_paper`, `download_semantic`.
-Best source for **citation counts** → ranking and for finding the canonical version of
-a preprint. Fallback: `scripts/search_local.py semanticscholar "query"`.
+## Bucket B — Semantic Scholar via Ai2 Asta (200M+ papers, citation counts)
+`asta` — Ai2 **Asta Scientific Corpus Tool**, the official Semantic Scholar MCP (remote
+HTTP `https://asta-tools.allen.ai/mcp/v1`; rate-limit + pagination handled server-side):
+`search_papers_by_relevance`, `search_paper_by_title`, `snippet_search` (full-text
+excerpts), `get_paper`, `get_citations` (forward cited-by — use for the snowball wave),
+`get_author_papers`, `search_authors_by_name`. Also `paper-search-mcp`: `search_semantic`,
+`read_semantic_paper`, `download_semantic`. Best source for **citation counts** → ranking
+and for finding the canonical version of a preprint. Fallback:
+`scripts/search_local.py semanticscholar "query"`.
 
 ## Bucket C — Crossref + OpenAlex (DOIs, published-version metadata)
 `paper-search-mcp`: `search_crossref`, `get_crossref_paper_by_doi`, `read_crossref_paper`,
