@@ -160,19 +160,20 @@ python3 ~/.claude/skills/scholar-megasearch/scripts/fetch_pdfs.py \
 없으면 표현으로 추론(`빠르게`/`quick` → L1 … `전수조사`/`every source` → L5),
 그래도 없으면 **L2** 기본.
 
-| 레벨 | facets | buckets | 쿼리당 hits | 웨이브 | 산출물 |
-|------|:------:|:-------:|:----------:|--------|--------|
-| **L1 · Quick** | 3 | 4 | 15 | 웨이브 1 | corpus |
-| **L2 · Standard** *(기본)* | 5 | 5 | 25 | 웨이브 1 | corpus |
-| **L3 · Deep** | 6 | 6 | 30 | + 인용 스노우볼 | corpus |
-| **L4 · Exhaustive** | 8 | 7 (전체) | 40 | + 스노우볼 + completeness-critic 패스 | corpus + ≥2 shortlist |
-| **L5 · Total** (전수조사) | 8 | 7 (전체) | 40 | + 스노우볼 + critic 루프(고갈까지) | corpus + ≥2 shortlist |
+| 레벨 | facets | buckets | 쿼리당 hits | 웨이브 | PDF | 산출물 |
+|------|:------:|:-------:|:----------:|--------|:---:|--------|
+| **L1 · Quick** | 3 | 4 | 15 | 웨이브 1 | 상위 10 | corpus |
+| **L2 · Standard** *(기본)* | 5 | 5 | 25 | 웨이브 1 | 상위 30 | corpus |
+| **L3 · Deep** | 6 | 6 | 30 | + 인용 스노우볼 | 상위 50 | corpus |
+| **L4 · Exhaustive** | 8 | 7 (전체) | 40 | + 스노우볼 + completeness-critic 패스 | 상위 100 | corpus + ≥2 shortlist |
+| **L5 · Total** (전수조사) | 8 | 7 (전체) | 40 | + 스노우볼 + critic 루프(고갈까지) | 전체 | corpus + ≥2 shortlist |
 
 각 웨이브는 팬아웃 후 *같은* 코퍼스로 병합된다. **인용 스노우볼**(L3+)은 상위 DOI/arXiv
 id를 인용 그래프에 재투입하고, **completeness-critic**(L4+)은 누락된 하위주제·저자를 짚어
 다음 웨이브의 facet으로 삼으며 L5에서는 고갈될 때까지 반복한다. L4/L5는 `--min-sources 2`
 shortlist도 함께 낸다. 상위 레벨일수록 서브에이전트와 토큰을 더 쓴다 — L5는 토큰 budget만이
-상한이다.
+상한이다. **PDF 확보 개수도 레벨에 따른다** — `fetch_pdfs.py --top`이 10 / 30 / 50 / 100,
+L5는 `all`(코퍼스 전체).
 
 ## 산출물
 
@@ -186,6 +187,10 @@ literature_search/<주제>_<날짜>/
 ├── pdfs/                  # 확보한 원본 PDF + manifest.json
 └── summary.md            # 합성 리뷰
 ```
+
+PDF는 `corpus.json` 랭크 기준 `NN_<slug>.pdf`로 저장되고, `summary.md`도 각 논문을 같은
+랭크의 `[#NN]`로 번호 매긴다 — 요약의 항목이 곧 그 `pdfs/NN_*.pdf` 파일과 `manifest.json`
+행으로 연결된다.
 
 ## 소스 버킷
 

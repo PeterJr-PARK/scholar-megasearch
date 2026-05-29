@@ -167,20 +167,21 @@ One knob scales **breadth** (facets × buckets × hits per query) and **recursio
 `1–5` wins; otherwise it's inferred from phrasing (`quick`/`빠르게` → L1 …
 `every source`/`전수조사` → L5); otherwise it defaults to **L2**.
 
-| Level | Facets | Buckets | Hits/query | Waves | Output |
-|-------|:------:|:-------:|:----------:|-------|--------|
-| **L1 · Quick** | 3 | 4 | 15 | wave 1 only | corpus |
-| **L2 · Standard** *(default)* | 5 | 5 | 25 | wave 1 only | corpus |
-| **L3 · Deep** | 6 | 6 | 30 | + citation snowball | corpus |
-| **L4 · Exhaustive** | 8 | 7 (all) | 40 | + snowball + completeness-critic pass | corpus + ≥2 shortlist |
-| **L5 · Total** (전수조사) | 8 | 7 (all) | 40 | + snowball + critic loop-until-dry | corpus + ≥2 shortlist |
+| Level | Facets | Buckets | Hits/query | Waves | PDFs | Output |
+|-------|:------:|:-------:|:----------:|-------|:----:|--------|
+| **L1 · Quick** | 3 | 4 | 15 | wave 1 only | top 10 | corpus |
+| **L2 · Standard** *(default)* | 5 | 5 | 25 | wave 1 only | top 30 | corpus |
+| **L3 · Deep** | 6 | 6 | 30 | + citation snowball | top 50 | corpus |
+| **L4 · Exhaustive** | 8 | 7 (all) | 40 | + snowball + completeness-critic pass | top 100 | corpus + ≥2 shortlist |
+| **L5 · Total** (전수조사) | 8 | 7 (all) | 40 | + snowball + critic loop-until-dry | all sources | corpus + ≥2 shortlist |
 
 Each wave is a fan-out followed by a merge into the *same* corpus: the **citation
 snowball** (L3+) seeds the top DOIs/arXiv ids back through citation graphs; the
 **completeness-critic** (L4+) names missing subtopics/authors that become the next
 wave's facets, looped until dry at L5. L4/L5 also emit a `--min-sources 2` shortlist.
 Higher levels spawn more subagents and cost more tokens — L5 is bounded only by the
-token budget.
+token budget. **PDF acquisition scales with the level too** — `fetch_pdfs.py --top` of
+10 / 30 / 50 / 100, and `all` (the whole corpus) at L5.
 
 ## Outputs
 
@@ -194,6 +195,10 @@ literature_search/<topic>_<date>/
 ├── pdfs/                  # acquired original PDFs + manifest.json
 └── summary.md            # synthesized review
 ```
+
+PDFs are named `NN_<slug>.pdf` by their `corpus.json` rank, and `summary.md` numbers each
+paper `[#NN]` with the same rank — so a summary entry maps directly to its `pdfs/NN_*.pdf`
+file and its `manifest.json` row.
 
 ## Source Buckets
 

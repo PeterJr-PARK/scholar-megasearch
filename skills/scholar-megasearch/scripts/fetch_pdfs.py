@@ -18,6 +18,7 @@ which is the route a standalone script cannot reach.
 
 Usage:
     fetch_pdfs.py corpus.json -o ./run/pdfs --email you@example.com --top 25
+    --top accepts a number (top-N ranked) or 'all' (or '0') for the entire corpus.
 """
 import argparse
 import json
@@ -102,21 +103,23 @@ def main():
     ap.add_argument("-o", "--out", default="./pdfs")
     ap.add_argument("--email", default=os.environ.get("PAPER_SEARCH_MCP_UNPAYWALL_EMAIL", ""),
                     help="contact email for arXiv/Unpaywall politeness + OA lookup")
-    ap.add_argument("--top", type=int, default=25, help="acquire PDFs for the top-N ranked papers")
+    ap.add_argument("--top", default="25",
+                    help="acquire PDFs for the top-N ranked papers, or 'all'/'0' for the whole corpus")
     args = ap.parse_args()
     if not args.email:
         sys.exit("--email is required (or set PAPER_SEARCH_MCP_UNPAYWALL_EMAIL)")
 
     with open(args.corpus, encoding="utf-8") as f:
         corpus = json.load(f)
-    papers = corpus[: args.top]
+    papers = corpus if str(args.top).strip().lower() in ("all", "0", "-1") else corpus[: int(args.top)]
     os.makedirs(args.out, exist_ok=True)
 
     manifest = []
     ok = 0
     for i, rec in enumerate(papers, 1):
-        name = slug(rec, i)
-        entry = {"i": i, "title": rec.get("title"), "doi": rec.get("doi"),
+        n = rec.get("rank", i)  # corpus rank — matches corpus.md + summary.md numbering
+        name = slug(rec, n)
+        entry = {"i": n, "rank": n, "title": rec.get("title"), "doi": rec.get("doi"),
                  "arxiv_id": rec.get("arxiv_id")}
         got = False
         for route in ROUTES:

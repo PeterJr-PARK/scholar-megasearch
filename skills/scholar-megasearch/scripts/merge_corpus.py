@@ -222,6 +222,8 @@ def main():
     merged = [finalize(r) for r in dedupe(raw)]
     merged = [r for r in merged if r["sources_count"] >= args.min_sources]
     merged = rank(merged)
+    for n, r in enumerate(merged, 1):
+        r["rank"] = n  # 1-based corpus rank; PDF filenames + summary.md number by this
     print(f"  unique papers: {len(merged)}", file=sys.stderr)
 
     with open(args.out, "w", encoding="utf-8") as f:

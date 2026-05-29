@@ -73,17 +73,23 @@ databases (high-precision shortlist).
 Read `corpus.json` and write `summary.md` in the run dir:
 - Headline count (unique papers, sources hit, year span).
 - Top ~15–25 papers grouped by sub-theme, each with a one-line "why it matters".
+- **Number every paper by its `corpus.json` `rank`** (1-based) shown as `[#NN]`. That
+  same number is the `NN_` prefix of the acquired `pdfs/NN_*.pdf` and the `rank`/`i` in
+  `pdfs/manifest.json`, so a reader jumps from a summary `[#NN]` straight to its file.
 - Seminal/most-cited works, recent frontier (last 2 yrs), and notable gaps.
 - Cite by DOI/arXiv id. Report honestly what was searched and any source that failed —
   no fabricated entries (see memory `feedback_honest_writing`).
 
 ### 7. Acquire original PDFs
-To pull the original PDFs of the top-K ranked papers:
+Pull the original PDFs for the depth level's count — L1 → top 10, L2 → 30, L3 → 50,
+L4 → 100, **L5 → `all`** (every paper in the corpus). `--top all` (or `0`) takes the
+whole corpus; files are saved as `NN_<slug>.pdf` by `corpus.json` rank, matching the
+`[#NN]` in `summary.md`:
 ```bash
 python3 ~/.claude/skills/scholar-megasearch/scripts/fetch_pdfs.py \
   ./literature_search/<slug>_<date>/corpus.json \
   -o ./literature_search/<slug>_<date>/pdfs \
-  --email you@example.com --top 25
+  --email you@example.com --top 30
 ```
 This auto-acquires via the free/legal routes — known open-access `pdf_url`, arXiv
 direct, then Unpaywall OA API — verifying each file is a real PDF, and writes
@@ -99,13 +105,13 @@ One knob: breadth (facets × buckets × hits) and recursion (extra waves) scale 
 Pick one per run — explicit `depth=N` / `LN` / bare `1–5` wins; else infer from phrasing;
 else default **L2**. Clamp out-of-range to 1–5, and state the level you ran at.
 
-| Lvl | facets | buckets | hits/subq | waves | output |
-|-----|--------|---------|-----------|-------|--------|
-| **L1 Quick** | 3 | 4 | 15 | wave 1 only | corpus |
-| **L2 Standard** *(default)* | 5 | 5 | 25 | wave 1 only | corpus |
-| **L3 Deep** | 6 | 6 | 30 | + citation-snowball | corpus |
-| **L4 Exhaustive** | 8 | 7 (all) | 40 | + snowball + 1 completeness-critic pass | corpus + ≥2 shortlist |
-| **L5 Total / 전수조사** | 8 | 7 (all) | 40 | + snowball + critic **loop-until-dry** | corpus + ≥2 shortlist |
+| Lvl | facets | buckets | hits/subq | waves | PDFs | output |
+|-----|--------|---------|-----------|-------|------|--------|
+| **L1 Quick** | 3 | 4 | 15 | wave 1 only | top 10 | corpus |
+| **L2 Standard** *(default)* | 5 | 5 | 25 | wave 1 only | top 30 | corpus |
+| **L3 Deep** | 6 | 6 | 30 | + citation-snowball | top 50 | corpus |
+| **L4 Exhaustive** | 8 | 7 (all) | 40 | + snowball + 1 completeness-critic pass | top 100 | corpus + ≥2 shortlist |
+| **L5 Total / 전수조사** | 8 | 7 (all) | 40 | + snowball + critic **loop-until-dry** | all | corpus + ≥2 shortlist |
 
 Phrasing → level when not explicit: 빠르게·quick·맛보기 → L1 · *(no signal)* → L2 ·
 깊게·deep·snowball·인용 추적 → L3 · systematic review·체계적·방대하게·빠짐없이 → L4 ·
