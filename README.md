@@ -18,7 +18,9 @@
   <img src="https://img.shields.io/github/stars/TaewoooPark/scholar-megasearch?style=flat-square&logo=github&logoColor=white&labelColor=000000&color=333333&cacheSeconds=3600" alt="GitHub stars">
   <img src="https://img.shields.io/github/last-commit/TaewoooPark/scholar-megasearch?style=flat-square&labelColor=000000&color=333333&cacheSeconds=3600" alt="Last commit">
   <img src="https://img.shields.io/github/languages/top/TaewoooPark/scholar-megasearch?style=flat-square&labelColor=000000&color=333333&cacheSeconds=3600" alt="Top language">
-  &nbsp;
+</p>
+
+<p align="center">
   <img src="https://img.shields.io/badge/Claude%20Code-000000?style=flat-square&logo=anthropic&logoColor=white&labelColor=000000&cacheSeconds=3600" alt="Claude Code">
   <img src="https://img.shields.io/badge/Skill%20%2B%20MCP-000000?style=flat-square&labelColor=000000&color=000000&cacheSeconds=3600" alt="Skill plus MCP">
   <img src="https://img.shields.io/badge/Python-000000?style=flat-square&logo=python&logoColor=white&labelColor=000000&cacheSeconds=3600" alt="Python">
@@ -112,8 +114,8 @@ into `~/.claude.json` and restart Claude Code.
 Inside Claude Code, trigger the skill in natural language:
 
 ```
-도메인월 측정 논문 방대하게 검색해줘, PDF까지
 search every database for spin–orbit torque switching and grab the PDFs
+MoE 관련 최근 1년 논문 방대하게 검색해줘, PDF까지
 ```
 
 Or run the scripts directly:
