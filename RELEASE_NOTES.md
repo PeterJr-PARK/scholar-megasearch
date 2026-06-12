@@ -7,6 +7,7 @@
 - Added Codex MCP template generation for `~/.codex/config.toml` and automatic `codex mcp add` registration for `arxiv-mcp-server`, `asta`, and `paper-search-mcp`.
 - Added Codex `agents/openai.yaml` metadata for both skills, with Asta declared as the safe auto-installable HTTP MCP dependency.
 - Kept all source buckets A-G and depth levels L1-L5 available in Codex; `SKILL.md` now states the core MCP engines and bucket map directly.
+- Repaired installer handling for existing venvs that are missing `pip`.
 - Pinned `chardet==5.2.0` to avoid `requests` compatibility warnings in fresh skill venvs.
 - Updated English and Korean README instructions for Claude Code, Codex, and dual-host installs.
 

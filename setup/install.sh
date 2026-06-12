@@ -117,6 +117,15 @@ install_skills() {
   rm -rf "${skills_dst:?}/semantic-scholar-mcp"
 }
 
+ensure_venv_pip() {
+  local venv="$1"
+  if "${venv}/bin/python" -m pip --version >/dev/null 2>&1; then
+    return
+  fi
+  echo "    repairing missing pip in ${venv}"
+  "${venv}/bin/python" -m ensurepip --upgrade >/dev/null
+}
+
 install_skill_venv() {
   local host="$1"
   local skill_venv="$2"
@@ -124,6 +133,7 @@ install_skill_venv() {
     echo "==> [${host}] creating search/acquisition venv at ${skill_venv}"
     "${PYTHON_BIN}" -m venv "${skill_venv}"
   fi
+  ensure_venv_pip "${skill_venv}"
   echo "==> [${host}] installing Python deps into ${skill_venv}"
   "${skill_venv}/bin/python" -m pip install -q --upgrade pip
   "${skill_venv}/bin/python" -m pip install -q -r "${REPO_DIR}/setup/requirements.txt"
@@ -136,6 +146,7 @@ install_paper_search_mcp() {
     echo "==> [${host}] creating paper-search MCP venv at ${psm_venv}"
     "${PYTHON_BIN}" -m venv "${psm_venv}"
   fi
+  ensure_venv_pip "${psm_venv}"
   echo "==> [${host}] installing paper-search-mcp (git main)"
   "${psm_venv}/bin/python" -m pip install -q --upgrade pip
   "${psm_venv}/bin/python" -m pip install -q "git+https://github.com/openags/paper-search-mcp.git"
