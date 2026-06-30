@@ -68,7 +68,8 @@ def norm_arxiv(v):
 def norm_title(v):
     if not v:
         return None
-    v = re.sub(r"[^a-z0-9]+", " ", str(v).lower()).strip()
+    # 유니코드 단어문자(한글·CJK 포함)는 보존하고, 그 외 구두점/기호만 공백으로.
+    v = re.sub(r"[^\w]+", " ", str(v).lower(), flags=re.UNICODE).strip()
     return v or None
 
 
@@ -82,8 +83,12 @@ def record_keys(r):
     if a:
         keys.append(("arxiv", a))
     t = norm_title(r.get("title"))
-    if t and len(t) > 8:  # avoid merging on trivially short titles
-        keys.append(("title", t))
+    # 한글/CJK가 포함되면 짧아도 정보량이 충분하므로 길이 가드를 6자로 완화,
+    # 순수 라틴 제목은 기존대로 8자 초과만 키로 사용(우연한 단문 충돌 방지).
+    if t:
+        has_cjk = bool(re.search(r"[　-鿿가-힣]", t))
+        if (has_cjk and len(t) >= 6) or (not has_cjk and len(t) > 8):
+            keys.append(("title", t))
     return keys
 
 
