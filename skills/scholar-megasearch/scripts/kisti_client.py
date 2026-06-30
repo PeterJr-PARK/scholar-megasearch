@@ -45,6 +45,8 @@ def _require_env():
 def get_access_token(force=False):
     """Issue (or reuse cached) an access token via tokenrequest.do."""
     cid, key, mac = _require_env()
+    if len(key.encode("utf-8")) != 32:
+        raise RuntimeError("KISTI_AUTH_KEY must be 32 bytes for AES-256 (got %d)" % len(key.encode("utf-8")))
     if not force and _TOKEN_CACHE.get(cid):
         return _TOKEN_CACHE[cid]
     now = "".join(re.findall(r"\d", datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")))
@@ -52,7 +54,13 @@ def get_access_token(force=False):
     accounts = _aes_encrypt(plain, key)
     url = f"{_TOKEN_URL}?client_id={cid}&accounts={accounts}"
     resp = requests.get(url, timeout=30)
-    resp.raise_for_status()
-    token = json.loads(resp.text)["access_token"]
+    if resp.status_code != 200:
+        # Do NOT include the URL (it carries client_id + encrypted accounts).
+        raise RuntimeError(f"KISTI token request failed: HTTP {resp.status_code}")
+    data = json.loads(resp.text)
+    if "access_token" not in data:
+        # KISTI returns 200 + error JSON for bad client_id / clock skew / IP block.
+        raise RuntimeError(f"KISTI token request returned no access_token: {resp.text[:300]}")
+    token = data["access_token"]
     _TOKEN_CACHE[cid] = token
     return token
