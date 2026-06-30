@@ -63,3 +63,23 @@ def test_token_cache_reuses_then_force_refetches():
         assert g.call_count == 1            # second call served from cache
         kc.get_access_token(force=True)
         assert g.call_count == 2            # force bypasses cache
+
+
+def test_load_env_reads_dotenv_and_shell_wins(tmp_path):
+    if importlib.util.find_spec("dotenv") is None:
+        import pytest; pytest.skip("python-dotenv not installed")
+    envf = tmp_path / ".env"
+    envf.write_text("KISTI_CLIENT_ID=fromdotenv\nKISTI_MAC=DD-EE-FF\n", encoding="utf-8")
+    for k in ("KISTI_CLIENT_ID", "KISTI_MAC"):
+        os.environ.pop(k, None)
+    try:
+        # .env populates missing vars
+        assert kc.load_env(str(envf)) is True
+        assert os.environ["KISTI_CLIENT_ID"] == "fromdotenv"
+        # existing shell env always wins (override=False)
+        os.environ["KISTI_CLIENT_ID"] = "fromshell"
+        kc.load_env(str(envf))
+        assert os.environ["KISTI_CLIENT_ID"] == "fromshell"
+    finally:
+        for k in ("KISTI_CLIENT_ID", "KISTI_MAC"):
+            os.environ.pop(k, None)

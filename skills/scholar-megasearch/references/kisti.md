@@ -13,6 +13,16 @@ scholar-megasearch의 국내(한국어) 소스 버킷. KCI 등재 논문·국내
 
 토큰은 런타임에 발급하며 저장소에 보존하지 않는다.
 
+자격증명은 **셸 환경변수**(`$env:KISTI_...`) 또는 **`.env` 파일**로 줄 수 있다. `kisti_client.py`는
+python-dotenv가 설치돼 있으면 작업 디렉토리의 `.env`를 자동 로딩한다(셸 env가 항상 우선). `.env`는
+`.gitignore` 처리되어 커밋되지 않는다 — **실제 키를 넣은 .env는 절대 커밋하지 말 것**(이 리포는 공개 포크).
+예시:
+```
+KISTI_CLIENT_ID=...
+KISTI_AUTH_KEY=...32바이트...
+KISTI_MAC=...
+```
+
 ## 토큰 발급 (검증됨 — 공식 샘플 `_vendor_kisti_token_sample/`)
 - 발급: `GET https://apigateway.kisti.re.kr/tokenrequest.do?client_id=<id>&accounts=<enc>`
 - `<enc>` = AES-256-CBC(plaintext, key=인증키, iv=`jvHJ1EFA0IXBrxxz` 고정, PKCS7 pad, block 16) → `base64.urlsafe_b64encode` → `urllib.parse.quote`

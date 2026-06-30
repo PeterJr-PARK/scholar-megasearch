@@ -2,9 +2,11 @@
 """KISTI ScienceON OpenAPI client for scholar-megasearch (Bucket H).
 
 Auth flow verified against the official KISTI token sample
-(references/_vendor_kisti_token_sample/). Credentials come ONLY from env:
+(references/_vendor_kisti_token_sample/). Credentials come from env:
     KISTI_CLIENT_ID, KISTI_AUTH_KEY (=인증키, AES-256 key/32 bytes), KISTI_MAC
-Never hardcode or commit secrets/tokens.
+They may optionally be supplied via a .env file in the working directory
+(python-dotenv is auto-loaded if installed; real shell env vars always win).
+Never hardcode or commit secrets/tokens. A real .env must stay gitignored.
 """
 import base64
 import datetime
@@ -14,6 +16,27 @@ import re
 from urllib.parse import quote
 
 import requests
+
+try:  # optional .env support; shell env always wins (override=False)
+    from dotenv import load_dotenv as _load_dotenv
+except ImportError:  # python-dotenv not installed -> .env files are ignored
+    _load_dotenv = None
+
+
+def load_env(path=None):
+    """Best-effort load of KISTI_* vars from a .env file (optional).
+
+    Requires python-dotenv. Shell/OS env vars are NOT overridden. Returns True
+    if a .env was found and loaded, False otherwise (incl. dotenv not installed).
+    SECURITY: never commit a real .env — it is gitignored.
+    """
+    if _load_dotenv is None:
+        return False
+    return bool(_load_dotenv(dotenv_path=path, override=False))
+
+
+load_env()  # auto-load ./.env (searched from CWD upward) at import, if present
+
 
 _AES_IV = "jvHJ1EFA0IXBrxxz"  # 고정값 (official sample)
 _AES_BLOCK = 16
