@@ -180,8 +180,8 @@ def _parse_records(xml_text, source, query, target):
 
 
 def _search(target, query, n, source):
+    token = get_access_token()  # validates KISTI_* env first (friendly RuntimeError)
     cid = os.environ["KISTI_CLIENT_ID"]
-    token = get_access_token()
     sq = quote(json.dumps({"BI": query}, ensure_ascii=False))
     url = (f"{_SEARCH_URL}?client_id={cid}&token={token}&version=1.0"
            f"&action=search&target={target}&searchQuery={sq}&curPage=1&rowCount={int(n)}")

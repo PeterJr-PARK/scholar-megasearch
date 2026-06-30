@@ -87,8 +87,12 @@ def search_kisti(query, n):
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     import kisti_client as kc
     fns = {"arti": kc.search_arti, "report": kc.search_report, "patent": kc.search_patent}
-    chosen = [t.strip() for t in os.environ.get("KISTI_TARGET", "arti,report,patent").split(",")
-              if t.strip() in fns]
+    raw_targets = os.environ.get("KISTI_TARGET", "arti,report,patent")
+    chosen = [t.strip() for t in raw_targets.split(",") if t.strip() in fns]
+    if not chosen:  # typo'd KISTI_TARGET -> warn and fall back to all targets
+        print(f"[kisti] KISTI_TARGET={raw_targets!r} has no valid target; using all",
+              file=sys.stderr)
+        chosen = list(fns)
     per = max(1, n // max(1, len(chosen)))
     out = []
     for t in chosen:
