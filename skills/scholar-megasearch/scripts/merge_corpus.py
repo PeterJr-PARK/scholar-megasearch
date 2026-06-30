@@ -11,7 +11,9 @@ any of these keys (all optional except a title or an id):
 Dedup keys, in priority order:
     1. DOI            normalized: lowercased, strip leading "https://doi.org/" / "doi:"
     2. arXiv id       normalized: strip "arXiv:" prefix and version suffix (v1, v2, ...)
-    3. title          normalized: lowercased, non-alphanumeric stripped, ws collapsed
+    3. title          normalized: lowercased, non-word (Unicode-aware) chars and
+                      underscores collapsed to spaces, ws collapsed. CJK/Hangul titles
+                      use a 6-char floor for the title key; pure-Latin titles need >8.
 
 Records sharing any key are merged into one. Merged record keeps the richest value
 per field (longest abstract, most authors, max citations, etc.) and accumulates the
@@ -68,8 +70,8 @@ def norm_arxiv(v):
 def norm_title(v):
     if not v:
         return None
-    # 유니코드 단어문자(한글·CJK 포함)는 보존하고, 그 외 구두점/기호만 공백으로.
-    v = re.sub(r"[^\w]+", " ", str(v).lower(), flags=re.UNICODE).strip()
+    # 유니코드 단어문자(한글·CJK 포함)는 보존하고, 그 외 구두점/기호와 밑줄(_)만 공백으로.
+    v = re.sub(r"[\W_]+", " ", str(v).lower(), flags=re.UNICODE).strip()
     return v or None
 
 

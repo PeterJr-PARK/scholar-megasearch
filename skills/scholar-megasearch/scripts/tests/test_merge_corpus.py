@@ -27,3 +27,16 @@ def test_english_dedupe_still_merges():
     ]
     out = mc.dedupe(recs)
     assert len(out) == 1
+
+
+def test_different_korean_titles_do_not_merge():
+    recs = [
+        {"title": "하천 표면영상유속계 적용성 평가", "source": "kisti"},
+        {"title": "도시 침수 모니터링 시스템 개발", "source": "kisti"},
+    ]
+    out = mc.dedupe(recs)
+    assert len(out) == 2
+
+
+def test_norm_title_collapses_underscore():
+    assert mc.norm_title("deep_learning models") == "deep learning models"
