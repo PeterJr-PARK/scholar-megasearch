@@ -13,6 +13,7 @@ import datetime
 import json
 import os
 import re
+import xml.etree.ElementTree as ET
 from urllib.parse import quote
 
 import requests
@@ -87,3 +88,119 @@ def get_access_token(force=False):
     token = data["access_token"]
     _TOKEN_CACHE[cid] = token
     return token
+
+
+# --- Search -----------------------------------------------------------------
+# Verified against real ScienceON responses (scripts/tests/fixtures/kisti_*_sample.xml).
+# Envelope: <MetaData><resultSummary><statusCode>200</statusCode>... <recordList>
+#   <record><item metaCode="X" metaName="..">CDATA</item>...</record>. Fields are
+# identified by the metaCode ATTRIBUTE, not the element tag.
+_SEARCH_URL = "https://apigateway.kisti.re.kr/openapicall.do"
+
+# corpus field <- ordered list of candidate metaCodes (first non-empty wins), per target.
+_FIELD_MAP = {
+    "ARTI": {"title": ["Title", "Title2"], "authors": ["Author", "Author2"],
+             "year": ["Pubyear"], "venue": ["JournalName"], "doi": ["DOI"],
+             "abstract": ["Abstract", "Abstract2"], "url": ["ContentURL"]},
+    "REPORT": {"title": ["Title", "Title2"], "authors": ["Author"],
+               "contributors": ["Contributors"], "year": ["Pubyear"],
+               "venue": ["Publisher"], "abstract": ["Abstract", "Abstract2"],
+               "url": ["ContentURL"]},
+    "PATENT": {"title": ["Title"], "authors": ["Applicants"],
+               "year": ["ApplDate", "PublDate", "GrantDate"], "abstract": ["Abstract"],
+               "url": ["ContentURL"], "venue_const": "특허"},
+}
+
+
+def _items(record_el):
+    """metaCode -> text for one <record> (first occurrence wins)."""
+    out = {}
+    for it in record_el.findall("item"):
+        code = it.get("metaCode")
+        if code and code not in out:
+            out[code] = (it.text or "").strip()
+    return out
+
+
+def _first(d, codes):
+    for c in codes or []:
+        if d.get(c):
+            return d[c]
+    return None
+
+
+def _split_names(s):
+    """KISTI author/applicant strings are ';'-separated with a trailing ';'."""
+    return [p.strip() for p in (s or "").split(";") if p.strip()]
+
+
+def _year(s):
+    m = re.search(r"\d{4}", s or "")
+    return int(m.group()) if m else None
+
+
+def _parse_records(xml_text, source, query, target):
+    """Parse a ScienceON search response into corpus records for the given target."""
+    try:
+        root = ET.fromstring(xml_text)
+    except ET.ParseError:
+        return []
+    rs = root.find("resultSummary")
+    if rs is not None and (rs.findtext("statusCode") or "").strip() not in ("", "200"):
+        return []
+    spec = _FIELD_MAP[target]
+    out = []
+    for rec_el in root.findall(".//record"):
+        d = _items(rec_el)
+        title = _first(d, spec["title"])
+        if not title:
+            continue
+        r = {"source": source, "query": query, "title": title}
+        authors = _split_names(_first(d, spec["authors"]))
+        if spec.get("contributors"):
+            authors += _split_names(_first(d, spec["contributors"]))
+        r["authors"] = authors
+        yr = _year(_first(d, spec["year"]))
+        if yr:
+            r["year"] = yr
+        venue = _first(d, spec.get("venue", [])) or spec.get("venue_const")
+        if venue:
+            r["venue"] = venue
+        doi = _first(d, spec.get("doi", []))
+        if doi:
+            r["doi"] = doi
+        abstract = _first(d, spec["abstract"])
+        if abstract:
+            r["abstract"] = abstract
+        url = _first(d, spec["url"])
+        if url:
+            r["url"] = url
+        out.append(r)
+    return out
+
+
+def _search(target, query, n, source):
+    cid = os.environ["KISTI_CLIENT_ID"]
+    token = get_access_token()
+    sq = quote(json.dumps({"BI": query}, ensure_ascii=False))
+    url = (f"{_SEARCH_URL}?client_id={cid}&token={token}&version=1.0"
+           f"&action=search&target={target}&searchQuery={sq}&curPage=1&rowCount={int(n)}")
+    resp = requests.get(url, timeout=60)
+    if resp.status_code != 200:
+        raise RuntimeError(f"KISTI {target} search failed: HTTP {resp.status_code}")
+    return _parse_records(resp.text, source, query, target)
+
+
+def search_arti(query, n=25):
+    """국내 논문(KCI 등) 검색."""
+    return _search("ARTI", query, n, "kisti-arti")
+
+
+def search_report(query, n=25):
+    """국내 R&D 보고서 검색."""
+    return _search("REPORT", query, n, "kisti-report")
+
+
+def search_patent(query, n=25):
+    """국내 특허 검색."""
+    return _search("PATENT", query, n, "kisti-patent")

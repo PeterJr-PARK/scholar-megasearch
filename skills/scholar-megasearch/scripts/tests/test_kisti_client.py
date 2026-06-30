@@ -65,6 +65,77 @@ def test_token_cache_reuses_then_force_refetches():
         assert g.call_count == 2            # force bypasses cache
 
 
+_ALLOWED = {"title", "authors", "year", "venue", "doi", "arxiv_id", "pdf_url",
+            "url", "citations", "abstract", "source", "query"}
+
+
+def _read_fix(name):
+    return open(os.path.join(FIX, name), encoding="utf-8").read()
+
+
+def test_parse_arti_fixture():
+    recs = kc._parse_records(_read_fix("kisti_arti_sample.xml"), "kisti-arti", "표면유속", "ARTI")
+    assert len(recs) == 5
+    r = recs[0]
+    assert r["title"] == "표면유속을 이용한 평균유속 추정방법의 개발"
+    assert "노영신" in r["authors"] and len(r["authors"]) == 3   # ';'-split, no trailing empty
+    assert r["year"] == 2005
+    assert r["doi"].endswith("10.3741/jkwra.2005.38.11.917")
+    assert "Journal of Korea Water" in r["venue"]
+    assert r["abstract"] and r["url"].startswith("http")
+    assert r["source"] == "kisti-arti" and r["query"] == "표면유속"
+    assert set(r) <= _ALLOWED                                    # no schema leakage
+
+
+def test_parse_report_fixture():
+    recs = kc._parse_records(_read_fix("kisti_report_sample.xml"), "kisti-report", "표면유속", "REPORT")
+    assert len(recs) == 5
+    r = recs[0]
+    assert r["title"].startswith("임계열유속")
+    assert "김무환" in r["authors"]                              # Author
+    assert "김준원" in r["authors"]                              # Contributors merged in
+    assert r["year"] == 2012
+    assert r["venue"] == "포항공과대학교 산학협력단"
+    assert "doi" not in r                                        # reports have no DOI
+    assert set(r) <= _ALLOWED
+
+
+def test_parse_patent_fixture():
+    recs = kc._parse_records(_read_fix("kisti_patent_sample.xml"), "kisti-patent", "표면유속", "PATENT")
+    assert len(recs) == 5
+    r = recs[0]
+    assert r["title"] == "전자파 표면 유속계"
+    assert "한국수자원공사" in r["authors"]                      # Applicants -> authors
+    assert r["year"] == 1996                                    # from ApplDate 19960201
+    assert r["venue"] == "특허"
+    assert set(r) <= _ALLOWED
+
+
+def test_parse_rejects_non_200_status():
+    bad = ('<?xml version="1.0" encoding="UTF-8"?><MetaData><resultSummary>'
+           '<statusCode>401</statusCode></resultSummary><recordList>'
+           '<record><item metaCode="Title">x</item></record></recordList></MetaData>')
+    assert kc._parse_records(bad, "kisti-arti", "q", "ARTI") == []
+
+
+def test_search_arti_uses_token_target_and_endpoint(monkeypatch):
+    resp = mock.Mock(); resp.status_code = 200; resp.text = _read_fix("kisti_arti_sample.xml")
+    monkeypatch.setattr(kc, "get_access_token", lambda force=False: "TOK")
+    with mock.patch.object(kc.requests, "get", return_value=resp) as g, \
+         mock.patch.dict(os.environ, {"KISTI_CLIENT_ID": "cid"}):
+        out = kc.search_arti("표면유속", 5)
+        assert len(out) == 5 and out[0]["source"] == "kisti-arti"
+        url = g.call_args[0][0]
+        assert "openapicall.do" in url and "target=ARTI" in url and "token=TOK" in url
+
+
+def test_search_local_dispatch_has_kisti():
+    sp = importlib.util.spec_from_file_location(
+        "search_local", os.path.join(_here, "..", "search_local.py"))
+    sl = importlib.util.module_from_spec(sp); sp.loader.exec_module(sl)
+    assert "kisti" in sl.DISPATCH
+
+
 def test_load_env_reads_dotenv_and_shell_wins(tmp_path):
     if importlib.util.find_spec("dotenv") is None:
         import pytest; pytest.skip("python-dotenv not installed")
