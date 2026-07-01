@@ -6,5 +6,6 @@ __pycache__/
 .env.*
 *.env
 setup/mcp.servers.resolved.json
+setup/mcp.servers.codex.resolved.toml
 literature_search/
 *.skill

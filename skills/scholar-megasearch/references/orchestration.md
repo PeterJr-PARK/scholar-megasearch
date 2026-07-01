@@ -12,14 +12,16 @@ Subagents return a JSON list of records. All fields optional except a `title`.
 ```
 
 A searcher agent's job: take its assigned bucket + the facet subqueries, run each
-query through its bucket's tools (load schemas via ToolSearch first), normalize hits
+query through its bucket's tools (load schemas via the host's tool discovery first),
+normalize hits
 into the schema, and **write one JSON file** to `<run>/raw/<bucket>.json`. It must NOT
 dedupe or rank — that is `merge_corpus.py`'s job.
 
 ## Preferred: Workflow tool (requires "workflow" opt-in)
 
 Use this when the user opted into workflows. Buckets fan out, each searcher writes its
-raw file, then a single merge + synthesis. Searcher agents reach MCP tools via ToolSearch.
+raw file, then a single merge + synthesis. Searcher agents reach MCP tools via the
+host's tool discovery (`ToolSearch` in Claude Code, `tool_search` in Codex).
 The merge runs as a Bash step after the workflow returns (workflow agents have no shared
 FS guarantees for the script) — so have each agent RETURN its records too, via schema.
 
@@ -29,8 +31,9 @@ export const meta = {
   description: 'Fan out academic search across source buckets, merge into one corpus',
   phases: [{ title: 'Search' }, { title: 'Synthesize' }],
 }
-// args = { topic, facets: ["subquery 1", ...], buckets: [{key, prompt}, ...],
-//          cap?: 30, seeds?: ["10.x/y", "arXiv:2401.00001"] }
+// args = { topic, field, goal, depth, facets: ["subquery 1", ...],
+//          buckets: [{key, prompt}, ...], cap?: 30,
+//          seeds?: ["10.x/y", "arXiv:2401.00001"] }
 // One wave per call. cap = hits/subquery (set by the depth level, SKILL.md). When seeds is
 // non-empty this is a CITATION-SNOWBALL wave (L3+): searchers expand the seeds' citations
 // instead of running facet queries. The main loop chains waves and runs merge_corpus.py
@@ -61,7 +64,9 @@ const perBucket = await parallel(args.buckets.map(b => () =>
   agent(
     `You are the "${b.key}" searcher in a literature megasearch on: ${args.topic}\n` +
     `${b.prompt}${task}\n\n` +
-    `Load tool schemas with ToolSearch first. Aim for ~${CAP} hits per subquery/seed. ` +
+    `Load tool schemas with the host tool discovery first. Aim for ~${CAP} hits per subquery/seed. ` +
+    `Use failure recovery: preferred MCP -> alternate MCP in your bucket -> local resilient fallback ` +
+    `where applicable; record failed/empty sources and continue with partial results. ` +
     `Set "source" to a short tag on every record. Return ALL records (do not dedupe).`,
     { label: `search:${b.key}`, phase: 'Search', schema: REC_SCHEMA }
   ).then(r => ({ bucket: b.key, results: (r && r.results) || [] }))
@@ -72,7 +77,7 @@ return { raw: all }   // main loop writes these to raw/*.json then runs merge_co
 ```
 
 After the workflow returns, write each `raw[i]` to `<run>/raw/<bucket>.json` and run
-`merge_corpus.py`. Then do the synthesis (see SKILL.md step 5).
+`merge_corpus.py --goal <goal> --topic "<topic>"`. Then do the synthesis (see SKILL.md step 5).
 
 For deeper runs (L3+), chain extra waves: a **citation-snowball** wave feeds the top ~10
 DOIs/arXiv ids from the corpus so far back in as `seeds:[...]` (the script switches to
@@ -88,9 +93,12 @@ prompt as above and instruct it to **write its raw file directly** to
 
 Agent prompt skeleton (one per bucket):
 > You are the "{bucket}" searcher. Topic: {topic}. Tools/bucket: {bucket tools from
-> sources.md}. Load schemas via ToolSearch. Run each subquery: {facets}. Aim for ~{cap}
-> hits per subquery. Normalize every hit to the record schema (set source+query). Write the
-> JSON list to `{run}/raw/{bucket}.json`. Report only the count written.
+> sources.md}. Load schemas via host tool discovery. Run each subquery: {facets}. Aim for ~{cap}
+> hits per subquery. Use failure recovery: preferred MCP -> alternate MCP in this bucket
+> -> local resilient fallback where applicable. If a source fails or returns empty, write
+> `{run}/raw/{bucket}.status.json` and continue. Normalize every hit to the record schema
+> (set source+query). Write the JSON list to `{run}/raw/{bucket}.json`. Report only the
+> count written and failed-source names.
 
 **Bucket H (KISTI) searcher 예시:** 한국어/국내 주제일 때만 포함. 도구: `scripts/search_local.py
 kisti "<한국어 질의>"` (필요 시 `KISTI_TARGET=arti` 등으로 한정). 반환 레코드의 `source`는

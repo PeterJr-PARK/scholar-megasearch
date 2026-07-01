@@ -21,6 +21,26 @@ merge → synthesize pipeline. Each subagent owns one **source bucket** and sear
 parallel; results are merged into a single deduplicated, provenance-tracked, ranked
 corpus. Prefer this over single-source searches whenever breadth matters.
 
+Works in both Claude Code and Codex. Use the host's native tool discovery when MCP
+schemas are deferred: Claude Code may expose `ToolSearch`; Codex may expose
+`tool_search`. Use the skill directory from the loaded skill path for bundled scripts.
+Default install locations:
+
+- Claude Code: `~/.claude/skills/scholar-megasearch`, venv `~/.claude/skill_venv`.
+- Codex: `~/.agents/skills/scholar-megasearch`, venv `${CODEX_HOME:-~/.codex}/skill_venv`.
+
+Core engines expected when fully installed:
+
+- MCP servers: `arxiv-mcp-server`, `asta`, and `paper-search-mcp`.
+- Local fallbacks: `scripts/search_local.py {arxiv|semanticscholar|ddg}` and
+  `scripts/resilient_search.py`, plus `scripts/fetch_pdfs.py`.
+
+Source buckets A-G:
+
+- A arXiv; B Semantic Scholar via Ai2 Asta; C Crossref + OpenAlex.
+- D PubMed/PMC/bioRxiv/medRxiv/Europe PMC; E DOAJ/CORE/BASE/OpenAIRE/Zenodo/Unpaywall/HAL.
+- F DBLP/IACR/CiteSeerX/SSRN; G web, GitHub, grey literature, and page scraping.
+
 For the full source list and which tools live in each bucket, read
 `references/sources.md`. For the orchestration templates and the record schema, read
 `references/orchestration.md`.
@@ -29,11 +49,21 @@ For the full source list and which tools live in each bucket, read
 
 ### 1. Frame the query + pick a depth level
 Restate the topic in one line. If it is underspecified (e.g. "find papers on neural
-networks"), ask 1–2 clarifying questions (sub-aspect? time range? methods vs. phenomena?) before
-fanning out — a vague seed wastes a large fan-out.
-Then pick a **depth level L1–L5** (see `## Depth levels` below): it sets the facet count,
-bucket count, per-source hit cap, and how many waves run. An explicit `depth=N` / `LN` /
-bare `1–5` in the request wins; otherwise infer from phrasing; otherwise default **L2**.
+networks"), do a **mini survey** before fanning out. Ask for exactly:
+
+- **Field**: e.g. `cs-ml`, `biomed`, `physics`, `chem-materials`, `crypto-security`,
+  `econ-social-law`, `math`, or `interdisciplinary`.
+- **Goal**: `survey`, `systematic`, `newest`, `seminal`, `implementation`, or `pdf-corpus`.
+- **Depth**: numeric `1`–`5` only.
+
+If the user already gave these, do not ask. Otherwise ask once, then continue. For terminal
+planning or repeatable runs, generate the same plan with:
+```bash
+python3 <skill-dir>/scripts/plan_run.py "<topic>" --field cs-ml --goal survey --depth 3
+```
+Depth sets the facet count, bucket count, per-source hit cap, and how many waves run.
+An explicit `depth=N` / `LN` / bare `1–5` in the request wins; otherwise use the user's
+numeric mini-survey answer; otherwise default **L2** only when the user asks not to be asked.
 
 ### 2. Decompose into facets + route to buckets
 - **Facets** (count set by the depth level, 3–8): synonyms, sub-aspects, method vs.
@@ -60,16 +90,19 @@ pdf_url, url, citations, abstract, **source**, **query**) and does NOT dedupe. T
 **wave 1**; L3+ add further waves after the first merge — see `## Depth levels`.
 
 ### 5. Merge into one corpus
+Dedupes by DOI → arXiv-id → normalized title, merges duplicates (keeping the richest
+fields + max citations), then ranks with the five-layer scorer described below. Pass the
+goal and topic so the relevance/weight profile is aligned with the mini survey:
 ```bash
-python3 ~/.claude/skills/scholar-megasearch/scripts/merge_corpus.py \
+python3 <skill-dir>/scripts/merge_corpus.py \
   ./literature_search/<slug>_<date>/raw \
   -o ./literature_search/<slug>_<date>/corpus.json \
-  --md ./literature_search/<slug>_<date>/corpus.md
+  --md ./literature_search/<slug>_<date>/corpus.md \
+  --goal <goal> --topic "<topic>"
 ```
-Dedupes by DOI → arXiv-id → normalized title, merges duplicates (keeping the richest
-fields + max citations), and ranks by (sources_count, citations, year). `corpus.md` is
-the human-readable digest. Use `--min-sources 2` to keep only papers corroborated by ≥2
-databases (high-precision shortlist).
+`corpus.md` is the human-readable digest. Use `--min-sources 2` to keep only papers
+corroborated by ≥2 databases (high-precision shortlist). Use `--ranking classic` only
+when reproducing old runs.
 
 ### 6. Synthesize
 Read `corpus.json` and write `summary.md` in the run dir:
@@ -88,7 +121,7 @@ L4 → 100, **L5 → `all`** (every paper in the corpus). `--top all` (or `0`) t
 whole corpus; files are saved as `NN_<slug>.pdf` by `corpus.json` rank, matching the
 `[#NN]` in `summary.md`:
 ```bash
-python3 ~/.claude/skills/scholar-megasearch/scripts/fetch_pdfs.py \
+python3 <skill-dir>/scripts/fetch_pdfs.py \
   ./literature_search/<slug>_<date>/corpus.json \
   -o ./literature_search/<slug>_<date>/pdfs \
   --email you@example.com --top 30
@@ -99,7 +132,7 @@ direct, then Unpaywall OA API — verifying each file is a real PDF, and writes
 For those, fetch via the session MCP download tools (`paper-search-mcp.
 download_with_fallback`, source-specific `download_*`, or `download_scihub`) — a
 standalone script cannot reach MCP. To read extracted full text afterward, use the
-`read_*_paper` MCP tools or `pdfplumber`/`pymupdf` (`~/.claude/skill_venv/bin/`).
+`read_*_paper` MCP tools or `pdfplumber`/`pymupdf` from the installed host venv.
 See `references/sources.md` for the full acquisition tool list.
 
 ## Depth levels (L1–L5)
@@ -121,6 +154,20 @@ exhaustive·every source·all of them·to the end → L5. Equivalent phrases in 
 languages map the same way. Higher levels spawn more subagents and cost more tokens
 (L5 is bounded only by the token budget, not a fixed wave count).
 
+## Five-layer ranking
+`merge_corpus.py` ranks each merged paper with five orthogonal layers. Each layer is
+normalized to 0–1 and written to `rank_layers`; the weighted total is `score`.
+
+1. **Provenance**: independent source agreement (`sources_count`), not citation-based.
+2. **Impact**: citation count plus age-normalized citation velocity.
+3. **Recency**: publication-year frontier signal, independent of citations.
+4. **Access/completeness**: DOI/arXiv id, PDF URL, abstract, authors, venue/year/url.
+5. **Relevance**: overlap between topic/query terms and title/abstract/venue/query text.
+
+Goal-specific weights stay intentionally separate: `systematic` emphasizes provenance,
+`seminal` emphasizes impact, `newest` emphasizes recency, `implementation` emphasizes
+relevance/access, and `pdf-corpus` emphasizes access. `survey` is balanced.
+
 **Waves** — each is a fan-out followed by a `merge_corpus.py` pass into the *same* corpus;
 applies to both the Workflow and Agent paths:
 1. **Wave 1** (all levels): `buckets` searchers, each running the `facets` subqueries,
@@ -140,10 +187,21 @@ corroborated by ≥2 databases) alongside the full `corpus.json`.
 
 ## Fallback when MCP is unavailable
 If MCP servers are down/headless, searchers use `scripts/search_local.py {arxiv|
-semanticscholar|ddg|kisti} "query"` (runs on `~/.claude/skill_venv/bin/python3`). arXiv may
+semanticscholar|ddg|kisti} "query"` with the installed host venv Python. arXiv may
 rate-limit (HTTP 429) under heavy fan-out — stagger or lean on Asta/OpenAlex. The Asta
 (Semantic Scholar) MCP is remote and needs **no key** (a key only raises rate limits) —
 in headless/cron runs just ensure network access, or fall back to
-`search_local.py semanticscholar`. Never let claude.ai `Scholar_Gateway` be a bucket's
-only tool (absent in headless runs).
+`search_local.py semanticscholar`. Never let a host-specific scholar gateway be a
+bucket's only tool (absent in headless runs).
 `kisti` 소스는 국내(KCI/보고서/특허) 전용이며 `KISTI_CLIENT_ID`/`KISTI_AUTH_KEY`/`KISTI_MAC` 환경변수가 있어야 동작한다(`references/kisti.md`). 자격증명이 없으면 이 버킷을 건너뛴다.
+
+For failure-recovery runs, use the resilient local ladder instead of aborting:
+```bash
+python3 <skill-dir>/scripts/resilient_search.py "<query>" \
+  --sources arxiv,semanticscholar,ddg -n 20 \
+  -o ./literature_search/<slug>_<date>/raw/local_recovery.json \
+  --status ./literature_search/<slug>_<date>/raw/local_recovery.status.json
+```
+Each searcher should follow the same policy: preferred MCP → alternate MCP in the bucket
+→ local resilient fallback where applicable → record the failed source in a status file
+and continue with partial results. Do not fail the whole run because one source fails.

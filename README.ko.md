@@ -1,7 +1,7 @@
 <h1 align="center">scholar-megasearch</h1>
 
 <p align="center">
-  <strong>Claude Code를 위한 대규모 멀티소스 학술 논문 검색.</strong><br>
+  <strong>Claude Code와 Codex를 위한 대규모 멀티소스 학술 논문 검색.</strong><br>
   <em>20개 이상의 학술 DB에 서브에이전트를 팬아웃해, 모든 결과를 하나의 중복제거된 코퍼스로 병합하고 원본 PDF까지 확보하는 단일 스킬.</em>
 </p>
 
@@ -24,6 +24,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Claude%20Code-000000?style=flat-square&logo=anthropic&logoColor=white&labelColor=000000&cacheSeconds=3600" alt="Claude Code">
+  <img src="https://img.shields.io/badge/OpenAI%20Codex-000000?style=flat-square&logo=openai&logoColor=white&labelColor=000000&cacheSeconds=3600" alt="OpenAI Codex">
   <img src="https://img.shields.io/badge/Skill%20%2B%20MCP-000000?style=flat-square&labelColor=000000&color=000000&cacheSeconds=3600" alt="Skill plus MCP">
   <img src="https://img.shields.io/badge/Python-000000?style=flat-square&logo=python&logoColor=white&labelColor=000000&cacheSeconds=3600" alt="Python">
 </p>
@@ -41,7 +42,7 @@
 
 ---
 
-> **한 줄 요약:** Claude Code에 주제를 던지면, 중복제거·출처추적·랭킹된 단일 논문 코퍼스를
+> **한 줄 요약:** Claude Code나 Codex에 주제를 던지면, 중복제거·출처추적·랭킹된 단일 논문 코퍼스를
 > PDF까지 디스크에 담아 돌려준다.
 
 - 🔭 **한 번에 20개 이상 DB** — arXiv, Semantic Scholar, Crossref, OpenAlex, PubMed/PMC, bioRxiv/medRxiv, DOAJ, CORE, BASE, OpenAIRE, Zenodo, Unpaywall, HAL, DBLP, IACR, SSRN, CiteSeerX, Europe PMC, 그리고 웹/GitHub.
@@ -69,7 +70,7 @@ DB가 교차 검증하는지로 랭킹되며, 무료 경로가 있으면 PDF가 
   <img src="./docs/pipeline.png" width="900" alt="scholar-megasearch 파이프라인: 주제 → facet 분해 → 소스 버킷당 서브에이전트 팬아웃 → merge_corpus.py(중복제거+랭킹) → fetch_pdfs.py → 합성">
 </p>
 
-오케스트레이션은 가능할 때 결정론적 **Workflow**로, 아니면 직접 **Agent** 팬아웃으로
+오케스트레이션은 가능할 때 결정론적 **Workflow**로, 아니면 직접 **Agent/subagent** 팬아웃으로
 폴백한다. 도메인 → 버킷 라우팅 표가 주제별로 알맞은 4~7개 버킷을 고른다.
 
 ### 중복제거 & 랭킹
@@ -98,18 +99,37 @@ DB가 교차 검증하는지로 랭킹되며, 무료 경로가 있으면 PDF가 
 ```bash
 git clone https://github.com/TaewoooPark/scholar-megasearch.git
 cd scholar-megasearch
-bash setup/install.sh you@example.com      # Unpaywall OA + arXiv 예의용 이메일
+
+# Claude Code (기본값, 기존 호환)
+bash setup/install.sh you@example.com
+
+# Codex
+bash setup/install.sh --target codex --email you@example.com
+
+# 둘 다
+bash setup/install.sh --target both --email you@example.com
+
+# 기본 python3가 너무 새 버전/구버전이면 venv 인터프리터를 직접 지정
+PYTHON_BIN=python3.11 bash setup/install.sh --target codex --email you@example.com
 ```
 
-스크립트는 스킬을 `~/.claude/skills/`에 설치하고, `~/.claude/skill_venv`와
-`~/.claude/paper_search_mcp_venv`를 빌드하며, 로컬 MCP 서버를 설치한다
-(`paper-search-mcp`는 git main — PyPI 빌드는 Crossref/OpenAlex 미포함; `arxiv-mcp-server`는
-`uvx`). Semantic Scholar(Bucket B)는 **원격** [Ai2 Asta MCP](https://allenai.org/asta/resources/mcp)라
-설치할 게 없고 **키 없이도 동작한다**(rate limit만). 한도를 늘리려면 무료 키를 발급받아 `asta`
-항목에 헤더를 추가한다: `"headers": { "x-api-key": "YOUR_ASTA_KEY" }` — **리터럴 키**를 붙여넣어야
-한다(`${ENV}` 자리표시자는 그대로 전송돼 HTTP 403으로 거부됨). 사용은 Ai2의 약관 적용을 받는다
-([출처](#출처-attribution) 참고). 그런 다음 `setup/mcp.servers.resolved.json`의 `mcpServers` 항목을
-`~/.claude.json`에 병합하고 Claude Code를 재시작하면 된다.
+설치 스크립트는 기본적으로 기존 Claude Code 동작을 유지한다. Claude Code 대상에서는 스킬을
+`~/.claude/skills/`에 설치하고, `~/.claude/skill_venv`와
+`~/.claude/paper_search_mcp_venv`를 빌드하며, `~/.claude.json`에 병합할
+`setup/mcp.servers.resolved.json`을 쓴다.
+
+Codex 대상에서는 개인 스킬을 기본적으로 `$HOME/.agents/skills`에 설치하고,
+`${CODEX_HOME:-~/.codex}` 아래에 검색 venv를 만들며, `~/.codex/config.toml`에 병합할
+`setup/mcp.servers.codex.resolved.toml`을 쓴다. `codex` CLI가 있으면
+`--register-codex-mcp`를 붙여 `arxiv-mcp-server`, `asta`, `paper-search-mcp`를
+`codex mcp add`로 자동 등록할 수 있다.
+
+두 호스트 모두 `paper-search-mcp`는 git main을 사용한다 — PyPI 빌드는
+Crossref/OpenAlex가 빠져 있다 — 그리고 `arxiv-mcp-server`는 `uvx`로 실행한다.
+Semantic Scholar(Bucket B)는 **원격** [Ai2 Asta MCP](https://allenai.org/asta/resources/mcp)라
+설치할 게 없고 **키 없이도 동작한다**(rate limit만). 한도를 늘리려면 무료 키를 발급받아
+`asta` 항목에 리터럴 `x-api-key` 헤더를 추가한다. 사용은 Ai2의 약관 적용을 받는다
+([출처](#출처-attribution) 참고).
 
 **요구사항**
 
@@ -118,15 +138,23 @@ bash setup/install.sh you@example.com      # Unpaywall OA + arXiv 예의용 이�
 | Python | 3.11+ |
 | [`uv`](https://astral.sh/uv) | `uvx arxiv-mcp-server`용 |
 | `git` | 설치 시 `paper-search-mcp`(git main) pip 설치 |
-| Claude Code | 스킬은 세션 안에서 트리거됨 |
+| Claude Code 또는 Codex | 스킬은 세션 안에서 트리거됨 |
 
 ## 사용법
 
-Claude Code 안에서 자연어로 스킬을 트리거한다:
+Claude Code 또는 Codex 안에서 자연어로 스킬을 트리거한다:
 
 ```
 그래프 신경망 논문 방대하게 검색해줘, PDF까지
 mixture-of-experts 라우팅 모든 DB에서 다 찾고 PDF까지 받아줘
+```
+
+요청이 애매하면 팬아웃 전에 짧은 미니 설문을 한다: **분야**, **목표**, 숫자 **깊이 1–5**.
+터미널에서도 같은 계획을 만들 수 있다:
+
+```bash
+python3 ~/.claude/skills/scholar-megasearch/scripts/plan_run.py \
+  "graph neural networks" --field cs-ml --goal survey --depth 3
 ```
 
 또는 **슬래시 커맨드**로 호출하고, 필요하면 깊이 레벨(아래 **깊이 단계** 표 참고)을
@@ -147,11 +175,20 @@ mixture-of-experts 라우팅 모든 DB에서 다 찾고 PDF까지 받아줘
 # 소스별 결과 파일을 하나의 랭킹 코퍼스로 병합
 python3 ~/.claude/skills/scholar-megasearch/scripts/merge_corpus.py \
   ./literature_search/<주제>_<날짜>/raw \
-  -o corpus.json --md corpus.md --min-sources 2
+  -o corpus.json --md corpus.md --min-sources 2 \
+  --goal survey --topic "graph neural networks"
+
+# MCP 소스가 불안정할 때 부분 결과 복구
+python3 ~/.claude/skills/scholar-megasearch/scripts/resilient_search.py \
+  "graph neural networks" --sources arxiv,semanticscholar,ddg \
+  -o raw/local_recovery.json --status raw/local_recovery.status.json
 
 # 상위 25편 원본 PDF 확보
 python3 ~/.claude/skills/scholar-megasearch/scripts/fetch_pdfs.py \
   corpus.json -o ./pdfs --email you@example.com --top 25
+
+# Codex 기본 스크립트 경로:
+# ~/.agents/skills/scholar-megasearch/scripts/
 ```
 
 ### 깊이 단계 (L1–L5)
@@ -175,6 +212,13 @@ id를 인용 그래프에 재투입하고, **completeness-critic**(L4+)은 누�
 shortlist도 함께 낸다. 상위 레벨일수록 서브에이전트와 토큰을 더 쓴다 — L5는 토큰 budget만이
 상한이다. **PDF 확보 개수도 레벨에 따른다** — `fetch_pdfs.py --top`이 10 / 30 / 50 / 100,
 L5는 `all`(코퍼스 전체).
+
+### 랭킹
+
+기본 병합 랭킹은 5층 가중 점수다: provenance, impact, recency, access/completeness,
+topic relevance. 목표 프로필(`survey`, `systematic`, `newest`, `seminal`,
+`implementation`, `pdf-corpus`)이 각 레이어 가중치를 조절하되 신호는 분리한다.
+이전 `sources_count, citations, year` 정렬을 재현하려면 `--ranking classic`을 쓴다.
 
 ## 산출물
 
@@ -230,7 +274,8 @@ scholar-megasearch/
 ├── setup/
 │   ├── install.sh            # 스킬 + venv + MCP 서버 + 해석된 설정
 │   ├── requirements.txt      # 고정 버전 검색/획득 의존성
-│   └── mcp.servers.json      # ~/.claude.json용 MCP 등록 템플릿
+│   ├── mcp.servers.json          # ~/.claude.json용 MCP 템플릿
+│   └── mcp.servers.codex.toml    # ~/.codex/config.toml용 MCP 템플릿
 └── skills/
     ├── scholar-megasearch/   # 스킬 본체
     │   ├── SKILL.md
@@ -253,7 +298,7 @@ paper-search-mcp)를 상위 소스에서 가져오고, Semantic Scholar는 원�
   arXiv가 막으면 Semantic Scholar / OpenAlex에 의존한다.
 - **`paper-search-mcp`는 반드시 git-main 빌드.** PyPI 릴리스는 Crossref·OpenAlex가 빠져
   있다 — 설치 스크립트가 처리한다.
-- **claude.ai Scholar Gateway는 best-effort** — 헤드리스/크론 실행에서 없을 수 있어, 어떤
+- **호스트별 Scholar Gateway는 best-effort** — 헤드리스/크론 실행에서 없을 수 있어, 어떤
   버킷의 유일한 소스로도 쓰지 않는다.
 - **정직한 합성.** `summary.md`는 실제로 검색한 것과 실패한 소스를 보고하며, 공백을 메우려고
   무엇도 날조하지 않는다.
