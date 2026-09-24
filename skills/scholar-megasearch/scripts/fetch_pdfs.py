@@ -34,7 +34,7 @@ TIMEOUT = 45
 
 def slug(rec, i):
     base = rec.get("title") or rec.get("doi") or rec.get("arxiv_id") or f"paper{i}"
-    s = re.sub(r"[^a-z0-9]+", "-", str(base).lower()).strip("-")
+    s = re.sub(r"[\W_]+", "-", str(base).lower()).strip("-")  # keep CJK/Hangul words
     return f"{i:02d}_{s[:60]}"
 
 

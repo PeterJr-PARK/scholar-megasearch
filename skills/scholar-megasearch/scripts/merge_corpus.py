@@ -11,7 +11,8 @@ any of these keys (all optional except a title or an id):
 Dedup keys, in priority order:
     1. DOI            normalized: lowercased, strip leading "https://doi.org/" / "doi:"
     2. arXiv id       normalized: strip "arXiv:" prefix and version suffix (v1, v2, ...)
-    3. title          normalized: lowercased, non-alphanumeric stripped, ws collapsed
+    3. title          normalized: NFKC + casefolded, non-word chars stripped (Unicode-
+                      aware, so CJK/Hangul titles dedupe too), ws collapsed
 
 Records sharing any key are merged into one. Merged record keeps the richest value
 per field (longest abstract, most authors, max citations, etc.) and accumulates the
@@ -31,6 +32,7 @@ import json
 import os
 import re
 import sys
+import unicodedata
 
 
 def _load(path):
@@ -66,9 +68,12 @@ def norm_arxiv(v):
 
 
 def norm_title(v):
+    # Unicode-aware so CJK/Hangul/accented titles keep a dedup key; an ASCII-only
+    # [^a-z0-9] strip reduced them to "" and records without a DOI were dropped.
     if not v:
         return None
-    v = re.sub(r"[^a-z0-9]+", " ", str(v).lower()).strip()
+    v = unicodedata.normalize("NFKC", str(v)).casefold()
+    v = re.sub(r"[\W_]+", " ", v).strip()
     return v or None
 
 
